@@ -45,8 +45,32 @@ languageRouter
 
 languageRouter
   .get('/head', async (req, res, next) => {
-    // implement me
-    res.send('implement me!')
+    try {
+      const { original, correct_count, incorrect_count } =
+        await LanguageService.getWord(
+          req.app.get('db'),
+          req.language.head
+        )
+
+      if (!original)
+        return res.status(404).json({ error: `Could not find the next word` })
+      if (correct_count == null)
+        return res.status(404).json({ error: `The next word does not have a count of your correct answers` })
+      if (incorrect_count == null)
+        return res.status(404).json({ error: `The next word does not have a count of your incorrect answers` })
+      if (req.language.total_score == null)
+        return res.status(404).json({ error: `Could not find a total score` })
+
+      res.json({
+        nextWord: original,
+        wordCorrectCount: correct_count,
+        wordIncorrectCount: incorrect_count,
+        totalScore: req.language.total_score
+      })
+      next()
+    } catch (error) {
+      next(error)
+    }
   })
 
 languageRouter
