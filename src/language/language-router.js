@@ -47,7 +47,7 @@ languageRouter
   .get('/head', async (req, res, next) => {
     try {
       const { original, correct_count, incorrect_count } =
-        await LanguageService.getWord(
+        await LanguageService.getWordById(
           req.app.get('db'),
           req.language.head
         )
@@ -75,8 +75,74 @@ languageRouter
 
 languageRouter
   .post('/guess', async (req, res, next) => {
-    // implement me
-    res.send('implement me!')
+    try {
+      let { guess } = req.body
+      let isCorrect
+      let nextWord
+      let wordUpdates 
+      let languageUpdates
+
+      if (!guess)
+        return res.status(404).json({
+          error: `Missing 'guess' in request body`,
+        })
+
+      // check guess against answer
+      const headWord = await LanguageService.getWordById(
+        req.app.get('db'),
+        req.language.head
+      )
+
+      if (guess === headWord.translation) {
+        headWord.m *= 2;
+        headWord.correct_count++
+        req.language.total_score++
+        isCorrect = true
+      } else {
+        headWord.m = 1
+        headWord.incorrect_count++
+        isCorrect = false
+      }
+
+      // update and get results
+      wordUpdates = {
+        m: headWord.m,
+        correct_count: headWord.correct_count,
+        incorrect_count: headWord.incorrect_count
+      }
+      languageUpdates = { total_score: req.language.total_score }
+      
+      [nextWord, wordUpdates, languageUpdates] = await Promise.all([
+        LanguageService.getWordById(
+          req.app.get('db'),
+          headWord.next
+        ),
+        LanguageService.update(
+          req.app.get('db'),
+          'word',
+          headWord.id,
+          wordUpdates
+        ),
+        LanguageService.update(
+          req.app.get('db'),
+          'language',
+          req.language.id,
+          languageUpdates
+        )
+      ])
+
+      res.json({
+        nextWord: nextWord,
+        wordCorrectCount: wordUpdates.correct_count,
+        wordIncorrectCount: wordUpdates.incorrect_count,
+        totalScore: languageUpdates.total_score,
+        answer: wordUpdates.translation,
+        isCorrect
+      })
+      next()
+    } catch (error) {
+      next(error)
+    }
   })
 
 module.exports = languageRouter

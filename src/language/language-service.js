@@ -29,7 +29,7 @@ const LanguageService = {
       .where({ language_id })
   },
 
-  getWord(db, id) {
+  getWordById(db, id) {
     return db
       .from('word')
       .select(
@@ -44,6 +44,32 @@ const LanguageService = {
       )
       .where({ id })
       .first()
+  },
+
+  getWordByWord(db, language_id, original) {
+    return db
+      .from('word')
+      .select(
+        'id',
+        'language_id',
+        'original',
+        'translation',
+        'next',
+        'memory_value',
+        'correct_count',
+        'incorrect_count',
+      )
+      .where({ language_id, original })
+      .first()
+  },
+
+  update(db, table, id, updates) {
+    return db
+      .update(updates)
+      .from(table)
+      .where('id', id)
+      .returning('*')
+      .then(([updated]) => updated);
   }
 }
 
