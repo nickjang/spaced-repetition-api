@@ -1,6 +1,8 @@
 const express = require('express')
 const LanguageService = require('./language-service')
 const { requireAuth } = require('../middleware/jwt-auth')
+const { getPrevious } = require('../linked-list/linked-list-functions')
+const jsonBodyParser = express.json()
 
 const languageRouter = express.Router()
 
@@ -74,53 +76,69 @@ languageRouter
   })
 
 languageRouter
-  .post('/guess', async (req, res, next) => {
+  .route('/guess')
+  .post(jsonBodyParser, async (req, res, next) => {
     try {
       let { guess } = req.body
       let isCorrect
       let nextWord
-      let wordUpdates 
+      let wordUpdates
       let languageUpdates
 
       if (!guess)
-        return res.status(404).json({
+        return res.status(400).json({
           error: `Missing 'guess' in request body`,
         })
 
-      // check guess against answer
-      const headWord = await LanguageService.getWordById(
+      // put words into linked list
+      const list = await LanguageService.populateLLWithOrderedWords(
         req.app.get('db'),
+        req.language.id,
         req.language.head
       )
+      const head = list.head ? list.head.value : null
 
-      if (guess === headWord.translation) {
-        headWord.m *= 2;
-        headWord.correct_count++
+      if (!head)
+        return res.status(404).json({
+          error: `Could not find any words`,
+        })
+
+      // check guess against answer
+      if (guess.trim().toLowerCase() === head.translation.trim().toLowerCase()) {
+        head.memory_value *= 2
+        head.correct_count++
         req.language.total_score++
         isCorrect = true
       } else {
-        headWord.m = 1
-        headWord.incorrect_count++
+        head.memory_value = 1
+        head.incorrect_count++
         isCorrect = false
       }
 
       // update and get results
-      wordUpdates = {
-        m: headWord.m,
-        correct_count: headWord.correct_count,
-        incorrect_count: headWord.incorrect_count
-      }
-      languageUpdates = { total_score: req.language.total_score }
-      
-      [nextWord, wordUpdates, languageUpdates] = await Promise.all([
+      list.remove(head.id)
+      list.insertAt(head, head.memory_value) // also updates head's next and the next of the word before it
+      wordUpdates = { // updates to old head
+        memory_value: head.memory_value,
+        next: head.next, // old head's new next
+        correct_count: head.correct_count,
+        incorrect_count: head.incorrect_count
+      };
+      languageUpdates = {
+        head: list.head ? list.head.value.id : null,
+        total_score: req.language.total_score
+      };
+      const prevWord = getPrevious(list, head.id) || list.head; // get word before old head in its new position 
+
+      [nextWord, wordUpdates, languageUpdates, rest] = await Promise.all([
         LanguageService.getWordById(
           req.app.get('db'),
-          headWord.next
+          languageUpdates.head
         ),
         LanguageService.update(
           req.app.get('db'),
           'word',
-          headWord.id,
+          head.id,
           wordUpdates
         ),
         LanguageService.update(
@@ -128,13 +146,19 @@ languageRouter
           'language',
           req.language.id,
           languageUpdates
+        ),
+        LanguageService.update(
+          req.app.get('db'),
+          'word',
+          prevWord.id,
+          { next: prevWord.next }
         )
       ])
 
       res.json({
-        nextWord: nextWord,
-        wordCorrectCount: wordUpdates.correct_count,
-        wordIncorrectCount: wordUpdates.incorrect_count,
+        nextWord: nextWord.original,
+        wordCorrectCount: nextWord.correct_count,
+        wordIncorrectCount: nextWord.incorrect_count,
         totalScore: languageUpdates.total_score,
         answer: wordUpdates.translation,
         isCorrect

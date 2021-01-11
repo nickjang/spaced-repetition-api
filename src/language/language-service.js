@@ -1,3 +1,6 @@
+const LinkedList = require('../linked-list/linked-list')
+const { reverseList } = require('../linked-list/linked-list-functions')
+
 const LanguageService = {
   getUsersLanguage(db, user_id) {
     return db
@@ -46,23 +49,6 @@ const LanguageService = {
       .first()
   },
 
-  getWordByWord(db, language_id, original) {
-    return db
-      .from('word')
-      .select(
-        'id',
-        'language_id',
-        'original',
-        'translation',
-        'next',
-        'memory_value',
-        'correct_count',
-        'incorrect_count',
-      )
-      .where({ language_id, original })
-      .first()
-  },
-
   update(db, table, id, updates) {
     return db
       .update(updates)
@@ -70,6 +56,23 @@ const LanguageService = {
       .where('id', id)
       .returning('*')
       .then(([updated]) => updated);
+  }, 
+
+  async populateLLWithOrderedWords(db, language_id, headId) {
+    // get words
+    let list = await this.getLanguageWords(db, language_id)
+    // pair word id to the word
+    const wordDictionary = {}
+    list.forEach(word => wordDictionary[word.id] = word)
+    // populate linked list
+    list = new LinkedList();
+    let currWord = wordDictionary[headId]
+    while (currWord) {
+      list.insertFirst(currWord)
+      currWord = wordDictionary[currWord.next];
+    }
+    reverseList(list);
+    return list;
   }
 }
 
