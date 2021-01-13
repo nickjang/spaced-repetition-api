@@ -2,13 +2,17 @@ const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
 const helmet = require('helmet')
-const { NODE_ENV } = require('./config')
+const { CLIENT_ORIGIN, NODE_ENV } = require('./config')
 const errorHandler = require('./middleware/error-handler')
 const authRouter = require('./auth/auth-router')
 const languageRouter = require('./language/language-router')
 const userRouter = require('./user/user-router')
 
 const app = express()
+
+app.use(cors({
+  origin: CLIENT_ORIGIN
+}))
 
 app.use(morgan((NODE_ENV === 'production') ? 'tiny' : 'common', {
   skip: () => NODE_ENV === 'test',
