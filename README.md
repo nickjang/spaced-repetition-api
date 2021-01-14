@@ -42,7 +42,7 @@ Base URL: `https://nickjang-spaced-repetition.herokuapp.com/api`
 	- POST
 		- `/language/guess`
 			- Send user's guess, and get back result, answer, next word, next word's correct/incorrect counts, and user's total score.
-- `/user` Enpoint
+- `/user` Endpoint
 	- POST 
 		- `/user`
 			- Create new user, given a username, password, and name.
