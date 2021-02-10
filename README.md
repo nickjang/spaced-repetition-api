@@ -1,6 +1,6 @@
 # Spaced Repetition
 
-An application for learning french words using spaced repetition as the quizzing method. Implements a linked list and sorting algorithm.
+An application for learning French words using spaced repetition as the quizzing method. Implements a linked list and sorting algorithm.
 
 This application was written using React, Node.js, PostgreSQL.
 
